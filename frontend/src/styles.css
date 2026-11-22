@@ -1,0 +1,56 @@
+:root {
+  --bg: #16181d;
+  --panel: #1f2229;
+  --border: #30343d;
+  --text: #e6e6e6;
+  --muted: #8b919c;
+  --accent: #4f9dff;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.4; cursor: default; }
+
+.app { max-width: 1200px; margin: 0 auto; padding: 16px 24px; }
+
+.header { display: flex; align-items: center; gap: 32px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.header h1 { font-size: 20px; margin: 0; letter-spacing: 0.5px; }
+.tabs { display: flex; gap: 4px; }
+.tab { border: none; background: none; padding: 8px 16px; border-radius: 6px; color: var(--muted); }
+.tab.active { background: var(--panel); color: var(--text); }
+
+.content { padding-top: 20px; }
+
+.split { display: flex; gap: 24px; align-items: flex-start; }
+
+.library { width: 260px; flex-shrink: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.library-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.library h2 { font-size: 15px; margin: 0; }
+.library ul { list-style: none; padding: 0; margin: 0; }
+.library li { display: flex; align-items: center; border-radius: 6px; }
+.library li.selected { background: #2a3140; }
+.rom-name { flex: 1; text-align: left; border: none; background: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon { border: none; background: none; color: var(--muted); padding: 4px 8px; }
+
+.player { display: flex; flex-direction: column; gap: 12px; }
+.screen { display: block; border: 1px solid var(--border); border-radius: 4px; image-rendering: pixelated; }
+.controls { display: flex; align-items: center; gap: 8px; }
+.status { flex: 1; color: var(--muted); }
+
+.muted { color: var(--muted); font-size: 14px; }
+.error { color: #ff7b72; font-size: 14px; }
+.placeholder { padding: 24px 0; }

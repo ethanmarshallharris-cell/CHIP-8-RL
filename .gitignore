@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Generated files
+backend/storage/
+backend/*_log.txt
+
+# Frontend (later)
+node_modules/
+frontend/dist/
+
+# Editor and OS
+.vscode/
+Thumbs.db
