@@ -1,0 +1,26 @@
+{
+  "name": "Pong (2 players)",
+  "rom_id": "1db31d734b9352f9",
+  "notes": "Both scores are packed into VE: left player = tens digit, right player = ones digit. Found with find_score.py.",
+  "agent_side": "left",
+  "actions": {
+    "stay": [],
+    "up": ["1"],
+    "down": ["Q"]
+  },
+  "score":          {"source": "register", "index": 14, "divisor": 10, "modulus": 10},
+  "opponent_score": {"source": "register", "index": 14, "modulus": 10},
+  "ball_x": {"source": "register", "index": 6},
+  "score_limit": 5,
+  "max_seconds": 120,
+  "end_on_wait_for_key": false,
+  "hit_bonus": 0.1,
+  "opponent": {
+    "mode": "scripted",
+    "keys": {"up": ["4"], "down": ["R"]},
+    "ball_y":   {"source": "register", "index": 7},
+    "paddle_y": {"source": "register", "index": 13},
+    "paddle_center_offset": 3,
+    "skill": 0.6
+  }
+}

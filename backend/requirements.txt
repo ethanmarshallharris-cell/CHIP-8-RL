@@ -3,3 +3,7 @@ uvicorn[standard]
 python-multipart
 httpx
 pytest
+numpy
+gymnasium
+stable-baselines3
+torch

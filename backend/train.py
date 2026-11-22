@@ -1,0 +1,134 @@
+"""
+Train an agent from the command line.
+
+Example (from the backend folder):
+    python train.py --rom storage\\roms\\1db31d734b9352f9.ch8 --profile rl\\profiles\\pong.json --steps 500000
+
+Progress is printed and saved to training_log.txt; the finished agent goes to
+storage\\agents\\<name>\\ (model.zip plus a summary.json of the settings and results).
+"""
+
+import argparse
+import json
+import time
+from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import SubprocVecEnv
+
+from rl.env import Chip8Env
+from rl.networks import Chip8CNN
+from rl.profiles import load_profile
+
+HERE = Path(__file__).resolve().parent
+
+
+class ProgressLog(BaseCallback):
+    """Every so often, print and log the average result of recent games."""
+
+    def __init__(self, log_path, every_steps=20_000):
+        super().__init__()
+        self.log_path = log_path
+        self.every = every_steps
+        self.next_report = every_steps
+        self.returns, self.results = [], []
+        self.episode_return = None
+        self.start = time.time()
+
+    def _on_training_start(self):
+        self.episode_return = np.zeros(self.training_env.num_envs)
+
+    def _on_step(self):
+        self.episode_return += self.locals["rewards"]
+        for i, done in enumerate(self.locals["dones"]):
+            if done:
+                scores = self.locals["infos"][i]["scores"]
+                self.returns.append(self.episode_return[i])
+                self.results.append((scores["agent"] or 0) - (scores["opponent"] or 0))
+                self.episode_return[i] = 0
+        if self.num_timesteps >= self.next_report:
+            self.next_report += self.every
+            recent_r, recent_s = self.returns[-50:], self.results[-50:]
+            line = (f"{self.num_timesteps:>10,} steps | {time.time() - self.start:>6.0f} s | "
+                    f"games {len(self.returns):>5} | avg reward {np.mean(recent_r) if recent_r else 0:>6.2f} | "
+                    f"avg score difference {np.mean(recent_s) if recent_s else 0:>5.2f}")
+            print(line)
+            with open(self.log_path, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        return True
+
+
+def evaluate(model, rom, profile, games=20):
+    """Play some games with the trained agent (best action, no randomness) and report results."""
+    env = Chip8Env(rom, profile, seed=12345)
+    wins = losses = 0
+    differences = []
+    for game in range(games):
+        obs, _ = env.reset(seed=1000 + game)
+        done = False
+        while not done:
+            action, _ = model.predict(obs, deterministic=True)
+            obs, _, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
+        mine, theirs = info["scores"]["agent"] or 0, info["scores"]["opponent"] or 0
+        differences.append(mine - theirs)
+        wins += mine > theirs
+        losses += mine < theirs
+    return {"games": games, "wins": wins, "losses": losses, "draws": games - wins - losses,
+            "avg_score_difference": float(np.mean(differences))}
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Train a CHIP-8 agent with PPO.")
+    parser.add_argument("--rom", required=True)
+    parser.add_argument("--profile", required=True)
+    parser.add_argument("--steps", type=int, default=500_000, help="total agent steps to train for")
+    parser.add_argument("--envs", type=int, default=4, help="games running in parallel (one per CPU core)")
+    parser.add_argument("--learning-rate", type=float, default=2.5e-4)
+    parser.add_argument("--name", default=None, help="name for the saved agent")
+    args = parser.parse_args()
+
+    rom = Path(args.rom).read_bytes()
+    profile = load_profile(args.profile)
+    name = args.name or f"{Path(args.profile).stem}-{datetime.now():%Y%m%d-%H%M%S}"
+    out = HERE / "storage" / "agents" / name
+    out.mkdir(parents=True, exist_ok=True)
+    log_path = HERE / "training_log.txt"
+    log_path.write_text(f"Training {name} - {datetime.now():%Y-%m-%d %H:%M:%S}\n", encoding="utf-8")
+
+    env = make_vec_env(lambda: Chip8Env(rom, profile), n_envs=args.envs,
+                       vec_env_cls=SubprocVecEnv if args.envs > 1 else None, seed=0)
+    model = PPO(
+        "CnnPolicy", env,
+        policy_kwargs={"features_extractor_class": Chip8CNN},
+        learning_rate=args.learning_rate,
+        n_steps=256, batch_size=256, n_epochs=4,
+        gamma=0.99, gae_lambda=0.95, clip_range=0.1, ent_coef=0.01,
+        device="cpu", verbose=0, seed=0,
+    )
+    started = time.time()
+    model.learn(total_timesteps=args.steps, callback=ProgressLog(log_path))
+    model.save(out / "model.zip")
+    env.close()
+
+    results = evaluate(model, rom, profile)
+    summary = {
+        "name": name, "rom_id": profile.get("rom_id"), "profile": profile,
+        "algorithm": "PPO", "steps": args.steps, "envs": args.envs,
+        "learning_rate": args.learning_rate,
+        "training_seconds": round(time.time() - started),
+        "evaluation": results,
+    }
+    (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    line = f"\nFinished in {summary['training_seconds']} s. Evaluation: {results}\nSaved to {out}"
+    print(line)
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+if __name__ == "__main__":       # required on Windows when games run in parallel processes
+    main()
