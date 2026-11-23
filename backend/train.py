@@ -41,6 +41,10 @@ class Checkpoints(BaseCallback):
         self.every = every_steps
         self.next_save = every_steps
 
+    def _on_training_start(self):
+        # A continued agent's step count doesn't start at 0, so count from where it is now.
+        self.next_save = self.num_timesteps + self.every
+
     def _on_step(self):
         if self.num_timesteps >= self.next_save:
             self.next_save += self.every
@@ -62,6 +66,8 @@ class ProgressLog(BaseCallback):
 
     def _on_training_start(self):
         self.episode_return = np.zeros(self.training_env.num_envs)
+        # A continued agent's step count doesn't start at 0, so count from where it is now.
+        self.next_report = self.num_timesteps + self.every
 
     def _on_step(self):
         self.episode_return += self.locals["rewards"]
